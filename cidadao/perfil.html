@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Perfil — UBS Digital</title>
+<link rel="stylesheet" href="css/mobile.css">
+</head>
+<body>
+<div id="app"></div>
+<script src="js/app.js"></script>
+<script>
+mountApp({ active: "perfil" });
+const u = Store.get().user, hist = Store.get().consultas.slice().sort((a, b) => b.iso.localeCompare(a.iso)).slice(0, 4);
+const kv = (k, v) => `<div class="kv"><span>${k}</span><b>${UI.esc(v)}</b></div>`;
+
+$("c").innerHTML = `
+  <div class="card pf">
+    <div class="big">${UI.initials(u.nome)}<button onclick="UI.toast('Edição de foto em construção.')">${I.edit.replace(/width="20" height="20"/, 'width="12" height="12"')}</button></div>
+    <div style="font-size:17px;font-weight:700;color:var(--ink);margin-bottom:6px">${UI.esc(u.nome)}</div>
+    <span class="chip">CNS: ${u.cns}</span>
+  </div>
+  <div class="card"><b style="color:var(--ink);font-size:14px">Informações Pessoais</b>
+    <div style="margin-top:6px">${kv("Data de Nascimento", u.nasc)}${kv("CPF", u.cpf)}${kv("Contato", u.tel)}${kv("E-mail", u.email)}</div></div>
+  <div class="row"><h3 style="margin-top:6px">Histórico de Consultas</h3><a href="consultas.html">Ver todas</a></div>
+  ${hist.map(c => `
+  <a class="card hi ${c.status === "Cancelada" ? "faded" : ""}" href="consultas.html?id=${c.id}">
+    <span class="ib">${I[espIcon(c.esp)]}</span>
+    <div><strong>${UI.esc(c.esp)}</strong><small>${UI.esc(c.medico)}</small><small>${D.curto(c.iso)} · ${c.hora}</small></div>
+    <div>${UI.pill(c.status)}</div>
+  </a>`).join("")}
+  <button class="btn d w" id="out" style="margin-top:6px">Sair da conta</button>`;
+$("out").onclick = () => { if (confirm("Deseja sair do portal?")) location.href = "home.html"; };
+</script>
+</body>
+</html>

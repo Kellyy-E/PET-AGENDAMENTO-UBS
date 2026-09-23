@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Consultas — UBS Digital</title>
+<link rel="stylesheet" href="css/mobile.css">
+</head>
+<body>
+<div id="app"></div>
+<script src="js/app.js"></script>
+<script>
+mountApp({ active: "consultas" });
+const P = new URLSearchParams(location.search);
+let aba = "prox";
+
+const card = c => `
+  <div class="card hi ${c.status === "Cancelada" ? "faded" : ""}" data-id="${c.id}" style="cursor:pointer">
+    <span class="ib">${I[espIcon(c.esp)]}</span>
+    <div><strong>${UI.esc(c.esp)}</strong><small>${UI.esc(c.medico)}</small><small>${D.curto(c.iso)} · ${c.hora}</small></div>
+    <div>${UI.pill(c.status)}</div>
+  </div>`;
+
+function render() {
+  const lista = aba === "prox" ? Store.proximas() : Store.historico();
+  $("c").innerHTML = `
+    <h2 class="t" style="color:var(--ink)">Minhas Consultas</h2>
+    <p class="sub">Acompanhe suas solicitações e agendamentos.</p>
+    <div class="tabs"><button data-a="prox" class="${aba === "prox" ? "on" : ""}">Próximas</button><button data-a="hist" class="${aba === "hist" ? "on" : ""}">Histórico</button></div>
+    ${lista.length ? lista.map(card).join("") : `<div class="empty">Nenhuma consulta por aqui.</div>`}
+    <a class="btn p w" href="agendamento.html">${I.plus} Nova Solicitação</a>`;
+  document.querySelectorAll("[data-a]").forEach(b => b.onclick = () => { aba = b.dataset.a; render(); });
+  document.querySelectorAll("[data-id]").forEach(b => b.onclick = () => detalhes(b.dataset.id));
+}
+
+function detalhes(id) {
+  const c = Store.get().consultas.find(x => x.id === id);
+  if (!c) return;
+  const ativa = c.status === "Confirmada" || c.status === "Em Análise";
+  const ov = UI.sheet(`
+    <h2>${UI.esc(c.esp)} ${UI.pill(c.status)}</h2>
+    <div class="kv"><span>Profissional</span><b>${UI.esc(c.medico)}</b></div>
+    <div class="kv"><span>Paciente</span><b>${UI.esc(c.paciente)}</b></div>
+    <div class="kv"><span>Data</span><b>${D.dia[D.parse(c.iso).getDay()]}, ${D.curto(c.iso)}</b></div>
+    <div class="kv"><span>Horário</span><b>${c.hora}</b></div>
+    <div class="kv"><span>Local</span><b>${c.unidade} - ${c.local}</b></div>
+    ${ativa ? `<div class="rem card" style="margin-top:12px;background:#F5F8FF"><b>Lembretes</b>✓ Chegar 15 minutos antes.<br>✓ Levar documento com foto e Cartão SUS.</div>
+      <button class="btn d w" id="cancel">Cancelar consulta</button>` : ""}
+    <button class="btn w" id="close" style="margin-top:10px">Fechar</button>`);
+  ov.querySelector("#close").onclick = () => ov.remove();
+  if (ativa) ov.querySelector("#cancel").onclick = () => {
+    if (!confirm("Deseja realmente cancelar esta consulta?")) return;
+    Store.update(db => { db.consultas.find(x => x.id === id).status = "Cancelada"; });
+    ov.remove(); UI.toast("Consulta cancelada."); render();
+  };
+}
+render();
+if (P.get("id")) detalhes(P.get("id"));
+</script>
+</body>
+</html>

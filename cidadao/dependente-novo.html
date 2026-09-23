@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Novo dependente — UBS Digital</title>
+<link rel="stylesheet" href="css/mobile.css">
+</head>
+<body>
+<div id="app"></div>
+<script src="js/app.js"></script>
+<script>
+mountApp({ active: "dependentes", title: "Novo Dependente", back: "dependentes.html", tools: "none", nav: false });
+$("c").innerHTML = `
+  <p class="sub">Informe os dados do familiar que será vinculado ao seu prontuário.</p>
+  <label for="nome">Nome completo</label><input id="nome" autocomplete="off" placeholder="Ex.: Maria Silva">
+  <div class="err" id="e-nome"></div>
+  <label for="par">Parentesco</label>
+  <select id="par"><option value="">Selecione</option>${["Filho(a)", "Pai", "Mãe", "Cônjuge", "Irmão(ã)", "Avô/Avó", "Outro"].map(p => `<option>${p}</option>`).join("")}</select>
+  <div class="err" id="e-par"></div>
+  <label for="nasc">Data de nascimento</label><input id="nasc" type="date">
+  <div class="err" id="e-nasc"></div>
+  <label for="cns">Cartão Nacional de Saúde (CNS)</label><input id="cns" inputmode="numeric" placeholder="000 0000 0000 0000">
+  <div class="err" id="e-cns"></div>`;
+$("app").querySelector(".phone").insertAdjacentHTML("beforeend", `<div class="foot"><button class="btn p w" id="save" style="height:46px">Salvar Dependente</button></div>`);
+$("nasc").max = D.iso(new Date());
+$("cns").oninput = e => { e.target.value = UI.mask(e.target.value); };
+
+$("save").onclick = () => {
+  const v = { nome: $("nome").value.trim(), par: $("par").value, nasc: $("nasc").value, cns: $("cns").value };
+  const erros = {
+    nome: v.nome.split(/\s+/).length < 2 ? "Informe nome e sobrenome." : "",
+    par: v.par ? "" : "Selecione o parentesco.",
+    nasc: v.nasc ? "" : "Informe a data de nascimento.",
+    cns: v.cns.replace(/\D/g, "").length === 15 ? "" : "O CNS deve ter 15 dígitos.",
+  };
+  Object.keys(erros).forEach(k => $("e-" + k).textContent = erros[k]);
+  if (Object.values(erros).some(Boolean)) return;
+  Store.update(db => db.dependentes.push({ id: "d" + Date.now(), nome: v.nome, parentesco: v.par, nasc: v.nasc.split("-").reverse().join("/"), cns: v.cns }));
+  location.href = "dependentes.html";
+};
+</script>
+</body>
+</html>
