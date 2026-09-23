@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Atendimentos — UBS Central</title>
+<link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+<div id="app"></div>
+
+<script src="js/store.js"></script>
+<script src="js/ui.js"></script>
+<script>
+mountShell({ active: "atendimentos", title: "Central de Atendimentos" });
+
+const PAGE_SIZE = 5;
+let visibleCount = PAGE_SIZE;
+
+function statusBadge(status) {
+  const map = {
+    aguardando: ["AGUARDANDO", "badge-waiting"],
+    em_atendimento: ["EM ATENDIMENTO", "badge-progress"],
+    finalizado: ["FINALIZADO", "badge-done"],
+  };
+  const [label, cls] = map[status] || [status, "badge-waiting"];
+  return `<span class="badge ${cls}">${label}</span>`;
+}
+
+function actionIcon(a) {
+  if (a.status === "finalizado") {
+    return `<button class="icon-btn approve" title="Ficha de atendimento" onclick="UI.toast('Ficha de atendimento gerada (simulação).')">${ICONS.solicitacoes}</button>`;
+  }
+  return `<button class="icon-btn approve" title="Avançar status" onclick="advance('${a.id}')">${ICONS.plus}</button>`;
+}
+
+const today = new Date();
+const dateFmt = new Intl.DateTimeFormat("pt-BR", { weekday: "long", day: "2-digit", month: "long", year: "numeric" }).format(today);
+
+function render() {
+  const all = Store.getAtendimentos();
+  const list = all.slice(0, visibleCount);
+
+  const rows = list.length ? list.map(a => `
+    <tr>
+      <td class="cell-icon-label">${ICONS.agendas} ${a.tipo}</td>
+      <td>${UI.escapeHtml(a.paciente)}</td>
+      <td>${a.turno}</td>
+      <td>${statusBadge(a.status)}</td>
+      <td>
+        <button class="icon-btn approve" title="Visualizar" onclick="UI.toast('Detalhes do atendimento em construção.')">${ICONS.eye}</button>
+        ${actionIcon(a)}
+      </td>
+    </tr>`).join("") : `<tr><td colspan="5" class="empty-cell">Nenhum atendimento agendado.</td></tr>`;
+
+  const remaining = all.length - list.length;
+
+  document.getElementById("content").innerHTML = `
+    <div class="page-head">
+      <div>
+        <h2>Atendimentos Agendados do Dia</h2>
+        <p style="text-transform:capitalize;">${dateFmt}</p>
+      </div>
+      <button class="btn btn-primary" onclick="openEspontaneo()">Ficha Atendimento Espontâneo</button>
+    </div>
+
+    <div class="card table-card">
+      <table>
+        <thead><tr><th>Tipo de Consulta</th><th>Paciente</th><th>Turno</th><th>Status</th><th>Ações</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+      ${remaining > 0 ? `
+        <div class="pending-footer" style="cursor:pointer;border-radius:0;" onclick="loadMore()">Carregar mais ${remaining} agendamentos</div>
+      ` : ""}
+    </div>
+  `;
+}
+
+function advance(id) {
+  Store.advanceAtendimento(id);
+  UI.toast("Status do atendimento atualizado.");
+  render();
+}
+
+function loadMore() {
+  visibleCount += PAGE_SIZE;
+  render();
+}
+
+function openEspontaneo() {
+  const nome = prompt("Nome do paciente para atendimento espontâneo:");
+  if (!nome || !nome.trim()) return;
+  const tipo = confirm("Clique OK para ESF, ou Cancelar para eMulti.") ? "ESF" : "eMulti";
+  Store.addAtendimentoEspontaneo({ tipo, paciente: nome.trim(), turno: "Encaixe - Hoje" });
+  UI.toast("Atendimento espontâneo adicionado.");
+  render();
+}
+
+render();
+</script>
+</body>
+</html>

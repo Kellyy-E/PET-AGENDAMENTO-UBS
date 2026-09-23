@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Configurar Novo Turno — UBS Central</title>
+<link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+<div id="app"></div>
+
+<script src="js/store.js"></script>
+<script src="js/ui.js"></script>
+<script>
+mountShell({ active: "agendas", title: "Agendas" });
+
+const PROFISSIONAIS = [
+  "Dr. Ricardo Almeida", "Dra. Amélia Alencar", "Dra. Fernanda Lima",
+  "Dr. Paulo Henrique", "Dra. Camila Nogueira",
+];
+const DIAS = ["DOM", "SEG", "TER", "QUA", "QUI", "SEX", "SAB"];
+const PUBLICOS_ESPECIFICOS = ["Gestante", "Doença Crônica", "Criança", "Puérpera"];
+
+const state = {
+  especialidade: SPECIALTIES[0],
+  profissional: "",
+  dias: [],
+  inicio: "08:00",
+  fim: "12:00",
+  recorrencia: "Semanal",
+  vagas: 16,
+  categoria: "livre",
+  publicoEspecifico: "Gestante",
+};
+
+function render() {
+  const especialidadeOptions = SPECIALTIES.map(s =>
+    `<option value="${s}" ${s === state.especialidade ? "selected" : ""}>${s}</option>`).join("");
+
+  const profissionalOptions = `<option value="">Selecione um profissional...</option>` +
+    PROFISSIONAIS.map(p => `<option value="${p}" ${p === state.profissional ? "selected" : ""}>${p}</option>`).join("");
+
+  const diaChips = DIAS.map(d => `
+    <button type="button" class="day-chip ${state.dias.includes(d) ? "selected" : ""}" onclick="toggleDia('${d}')">${d}</button>
+  `).join("");
+
+  const publicoEspecificoOptions = PUBLICOS_ESPECIFICOS.map(p =>
+    `<option value="${p}" ${p === state.publicoEspecifico ? "selected" : ""}>${p}</option>`).join("");
+
+  document.getElementById("content").innerHTML = `
+    <div class="page-head">
+      <div>
+        <h2>Configurar Novo Turno</h2>
+        <p>Preencha os detalhes para disponibilizar horários no portal e organizar os atendimentos da unidade.</p>
+      </div>
+    </div>
+
+    <div class="card form-card">
+      <div class="field">
+        <label>Especialidade</label>
+        <select id="f-especialidade">${especialidadeOptions}</select>
+      </div>
+
+      <div class="field">
+        <label>Profissional de Saúde</label>
+        <select id="f-profissional">${profissionalOptions}</select>
+      </div>
+
+      <div class="field">
+        <label>Dias da Semana</label>
+        <div class="day-picker">${diaChips}</div>
+      </div>
+
+      <div class="field-row">
+        <div class="field">
+          <label>Horário de Início</label>
+          <input type="time" id="f-inicio" value="${state.inicio}">
+        </div>
+        <div class="field">
+          <label>Horário de Término</label>
+          <input type="time" id="f-fim" value="${state.fim}">
+        </div>
+      </div>
+
+      <div class="field-row">
+        <div class="field">
+          <label>Recorrência</label>
+          <select id="f-recorrencia">
+            <option ${state.recorrencia === "Semanal" ? "selected" : ""}>Semanal</option>
+            <option ${state.recorrencia === "Quinzenal" ? "selected" : ""}>Quinzenal</option>
+            <option ${state.recorrencia === "Mensal" ? "selected" : ""}>Mensal</option>
+            <option ${state.recorrencia === "Não se repete" ? "selected" : ""}>Não se repete</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Vagas por Dia</label>
+          <input type="number" min="1" id="f-vagas" value="${state.vagas}">
+        </div>
+      </div>
+
+      <div class="field">
+        <label>Categoria da Agenda</label>
+        <div class="category-grid">
+          <label class="category-option ${state.categoria === "livre" ? "selected" : ""}">
+            <input type="radio" name="categoria" value="livre" ${state.categoria === "livre" ? "checked" : ""} onchange="setCategoria('livre')">
+            <div>
+              <h4>Agenda Livre</h4>
+              <p>Disponível para todo o público geral da unidade básica de saúde.</p>
+            </div>
+          </label>
+          <label class="category-option ${state.categoria === "especifica" ? "selected" : ""}">
+            <input type="radio" name="categoria" value="especifica" ${state.categoria === "especifica" ? "checked" : ""} onchange="setCategoria('especifica')">
+            <div>
+              <h4>Específica</h4>
+              <p>Público alvo específico: Gestante, Crônico, Criança ou Puérpera.</p>
+            </div>
+          </label>
+        </div>
+        ${state.categoria === "especifica" ? `
+          <div class="field category-specific-select">
+            <label>Público-alvo específico</label>
+            <select id="f-publico-especifico">${publicoEspecificoOptions}</select>
+          </div>` : ""}
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:0;border-top:none;border-top-left-radius:0;border-top-right-radius:0;">
+      <div class="form-actions">
+        <a class="link-cancel" href="agendas.html">Cancelar</a>
+        <button class="btn btn-primary" onclick="salvarTurno()">Salvar Agenda</button>
+      </div>
+    </div>
+  `;
+
+  document.getElementById("f-especialidade").onchange = e => state.especialidade = e.target.value;
+  document.getElementById("f-profissional").onchange = e => state.profissional = e.target.value;
+  document.getElementById("f-inicio").onchange = e => state.inicio = e.target.value;
+  document.getElementById("f-fim").onchange = e => state.fim = e.target.value;
+  document.getElementById("f-recorrencia").onchange = e => state.recorrencia = e.target.value;
+  document.getElementById("f-vagas").onchange = e => state.vagas = e.target.value;
+  const pe = document.getElementById("f-publico-especifico");
+  if (pe) pe.onchange = e => state.publicoEspecifico = e.target.value;
+}
+
+function toggleDia(d) {
+  state.dias = state.dias.includes(d) ? state.dias.filter(x => x !== d) : [...state.dias, d];
+  render();
+}
+
+function setCategoria(c) {
+  state.categoria = c;
+  render();
+}
+
+function salvarTurno() {
+  if (!state.profissional) { UI.toast("Selecione um profissional de saúde."); return; }
+  if (!state.dias.length) { UI.toast("Selecione ao menos um dia da semana."); return; }
+  if (!state.vagas || Number(state.vagas) <= 0) { UI.toast("Informe uma quantidade de vagas válida."); return; }
+
+  const publico = state.categoria === "livre" ? "Público Geral" : state.publicoEspecifico;
+
+  Store.addTurno({
+    especialidade: state.especialidade,
+    profissional: state.profissional,
+    iniciais: UI.initials(state.profissional),
+    dias: state.dias,
+    inicio: state.inicio,
+    fim: state.fim,
+    recorrencia: state.recorrencia,
+    vagas: Number(state.vagas),
+    categoria: state.categoria,
+    publico,
+  });
+
+  window.location.href = "agendas.html";
+}
+
+render();
+</script>
+</body>
+</html>

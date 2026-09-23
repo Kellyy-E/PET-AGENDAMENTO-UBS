@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pessoas — UBS Central</title>
+<link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+<div id="app"></div>
+
+<script src="js/store.js"></script>
+<script src="js/ui.js"></script>
+<script>
+const params = new URLSearchParams(window.location.search);
+const tipo = params.get("tipo") === "funcionario" ? "funcionario" : "cidadao";
+
+mountShell({ active: "pessoas", activeSub: tipo, title: "Pessoas" });
+
+let query = "";
+let resultado = null;
+let searched = false;
+
+const LABELS = {
+  cidadao: {
+    subtitle: "Busque por cidadãos registrados na base nacional de saúde.",
+    placeholderEmpty: "Busque um cidadão pelo nome, CPF ou CNS para ver o histórico e os dados de cadastro.",
+  },
+  funcionario: {
+    subtitle: "Busque por profissionais registrados na base nacional de saúde.",
+    placeholderEmpty: "Busque um profissional pelo nome, CPF ou registro para ver a agenda e o histórico.",
+  },
+};
+
+function historicoRows() {
+  if (tipo === "funcionario") {
+    return resultado.historico.map(h => `
+      <tr>
+        <td>${h.data}</td>
+        <td>${UI.escapeHtml(h.paciente)}</td>
+        <td><span class="badge ${h.status === "Concluída" ? "badge-done" : h.status === "Cancelada" ? "badge-cancel" : "badge-progress"}">${h.status}</span></td>
+        <td><a class="link-arrow" href="#" onclick="UI.toast('Detalhe do atendimento em construção.'); return false;">Visualizar</a></td>
+      </tr>`).join("");
+  }
+  return resultado.historico.map(h => `
+    <tr>
+      <td>${h.data}</td>
+      <td class="cell-icon-label">${ICONS.agendas} ${h.especialidade}</td>
+      <td>${h.profissional}</td>
+      <td><span class="badge ${h.status === "Concluída" ? "badge-done" : h.status === "Cancelada" ? "badge-cancel" : "badge-progress"}">${h.status}</span></td>
+      <td><a class="link-arrow" href="#" onclick="UI.toast('Detalhe do atendimento em construção.'); return false;">Visualizar</a></td>
+    </tr>`).join("");
+}
+
+function historicoHead() {
+  if (tipo === "funcionario") {
+    return `<tr><th>Data</th><th>Paciente</th><th>Status</th><th>Ação</th></tr>`;
+  }
+  return `<tr><th>Data</th><th>Especialidade</th><th>Profissional</th><th>Status</th><th>Ação</th></tr>`;
+}
+
+function sideCardHtml() {
+  if (tipo === "funcionario") {
+    const diasHtml = resultado.diasAgendasAbertas.map(d => `
+      <div class="agenda-abertas-item">
+        <div class="dia">${d.dia}</div>
+        ${d.periodos.map(p => `<div class="periodo">☀️ ${p.label}: ${p.horario}</div>`).join("")}
+      </div>`).join("");
+    return `
+      <div class="card side-card">
+        <div class="side-card-title" style="justify-content:space-between;">
+          <span>Dias de Agendas Abertas</span>
+          <a class="link-arrow" style="font-size:13px;" href="agendas.html">Ver Todas</a>
+        </div>
+        <div class="agenda-abertas-list">${diasHtml}</div>
+      </div>`;
+  }
+  return `
+    <div class="card side-card">
+      <div class="side-card-title">${ICONS.barchart} Resumo de Acessos</div>
+      <div class="side-card-row"><span class="k">Último Atendimento</span><span class="v">${resultado.resumoAcessos.ultimoAtendimento}</span></div>
+      <div class="side-card-row"><span class="k">Agendamentos Ativos</span><span class="v">${resultado.resumoAcessos.agendamentosAtivos}</span></div>
+      <div class="side-card-row"><span class="k">Vínculo UBS</span><span class="v">${resultado.resumoAcessos.vinculoUbs}</span></div>
+      <button class="btn btn-outline" onclick="UI.toast('Prontuário completo em construção.')">Ver prontuário completo</button>
+    </div>
+    <div class="card microarea-card">
+      <div class="head">
+        <div class="head-icon">${ICONS.map}</div>
+        <div>
+          <strong>Microárea ${resultado.microarea.numero}</strong>
+        </div>
+      </div>
+      <p>Agente: ${resultado.microarea.agente}</p>
+      <a href="#" onclick="UI.toast('Mapa da microárea em construção.'); return false;">Ver Mapa ${ICONS.chevronRight}</a>
+    </div>`;
+}
+
+function resultHtml() {
+  const tagsHtml = tipo === "cidadao"
+    ? resultado.tags.map(t => `<span class="badge ${t.cls}">${t.label}</span>`).join("")
+    : "";
+
+  return `
+    <div class="pessoa-result-grid">
+      <div class="card pessoa-profile-card">
+        <div class="pessoa-photo-fallback">${UI.initials(resultado.nome)}</div>
+        <div class="pessoa-profile-main">
+          <div class="pessoa-profile-info-grid">
+            ${tipo === "cidadao" ? `
+              <div><div class="k">Mãe</div><div class="v">${UI.escapeHtml(resultado.mae)}</div></div>
+              <div><div class="k">Data de Nascimento</div><div class="v">${resultado.dataNascimento}</div></div>
+              <div><div class="k">CPF</div><div class="v">${resultado.cpf}</div></div>
+              <div><div class="k">CNS</div><div class="v">${resultado.cns}</div></div>
+              <div><div class="k">Telefone</div><div class="v">${resultado.telefone}</div></div>
+              <div><div class="k">Endereço</div><div class="v">${resultado.endereco}</div></div>
+            ` : `
+              <div><div class="k">Especialidade</div><div class="v">${resultado.especialidade}</div></div>
+              <div><div class="k">Data de Nascimento</div><div class="v">${resultado.dataNascimento}</div></div>
+              <div><div class="k">CPF</div><div class="v">${resultado.cpf}</div></div>
+              <div><div class="k">Registro Profissional</div><div class="v">${resultado.registroProfissional}</div></div>
+              <div><div class="k">Telefone</div><div class="v">${resultado.telefone}</div></div>
+              <div><div class="k">Endereço</div><div class="v">${resultado.endereco}</div></div>
+            `}
+          </div>
+          <div class="pessoa-name-block">
+            <h3>${UI.escapeHtml(resultado.nome)}</h3>
+            <div class="meta">${resultado.idade} anos • ${resultado.sexo}</div>
+            ${tagsHtml ? `<div class="pessoa-tags">${tagsHtml}</div>` : ""}
+          </div>
+        </div>
+      </div>
+      ${sideCardHtml()}
+    </div>
+
+    <div class="card table-card" style="margin-top:20px;">
+      <div class="table-card-head">
+        <div>
+          <h3>Histórico de Atendimentos</h3>
+          <p style="margin:2px 0 0;font-size:13px;color:var(--text-muted);">Registros de atendimentos realizados nos últimos 12 meses.</p>
+        </div>
+        <div class="table-card-toolbar">
+          <button class="icon-btn-outline" title="Filtrar" onclick="UI.toast('Filtros em construção.')">${ICONS.filter}</button>
+          <button class="icon-btn-outline" title="Exportar" onclick="UI.toast('Exportação em construção.')">${ICONS.download}</button>
+        </div>
+      </div>
+      <table>
+        <thead>${historicoHead()}</thead>
+        <tbody>${historicoRows()}</tbody>
+      </table>
+      <div class="pagination-footer">
+        <span>Exibindo ${resultado.historico.length} de ${resultado.totalAtendimentos} atendimentos</span>
+        <div class="pagination-controls">
+          <button class="page-arrow" onclick="UI.toast('Página anterior indisponível na simulação.')">${ICONS.chevronLeft}</button>
+          <button class="page-num active">1</button>
+          <button class="page-num" onclick="UI.toast('Paginação em construção.')">2</button>
+          <button class="page-num" onclick="UI.toast('Paginação em construção.')">3</button>
+          <button class="page-arrow" onclick="UI.toast('Próxima página em construção.')">${ICONS.chevronRight}</button>
+        </div>
+      </div>
+    </div>`;
+}
+
+function render() {
+  const l = LABELS[tipo];
+
+  document.getElementById("content").innerHTML = `
+    <div class="page-head">
+      <div>
+        <h2>Consulta de Cadastro</h2>
+        <p>${l.subtitle}</p>
+      </div>
+    </div>
+
+    <div class="card search-card">
+      <label for="f-busca">Buscar Pessoa</label>
+      <div class="search-row">
+        <input id="f-busca" type="text" placeholder="Nome completo, CPF ou CNS" value="${UI.escapeHtml(query)}">
+        <button class="btn btn-primary" onclick="buscar()">${ICONS.search} Pesquisar</button>
+      </div>
+    </div>
+
+    ${searched && resultado ? resultHtml() : ""}
+    ${searched && !resultado ? `
+      <div class="card search-empty" style="margin-top:20px;">
+        ${ICONS.inbox}
+        <h3 style="color:var(--ink);margin:0 0 6px;">Nenhum resultado encontrado</h3>
+        <p style="margin:0;">Não encontramos ${tipo === "funcionario" ? "profissional" : "cidadão"} com os dados informados.</p>
+      </div>` : ""}
+  `;
+
+  const input = document.getElementById("f-busca");
+  input.onkeydown = e => { if (e.key === "Enter") buscar(); };
+  input.oninput = e => query = e.target.value;
+  input.focus();
+}
+
+function buscar() {
+  if (!query.trim()) { UI.toast("Digite um nome, CPF ou CNS para buscar."); return; }
+  resultado = Store.buscarPessoa(tipo, query);
+  searched = true;
+  render();
+}
+
+render();
+</script>
+</body>
+</html>

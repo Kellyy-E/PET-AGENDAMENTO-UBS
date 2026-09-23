@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ficha de Atendimento — UBS Central</title>
+<link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+<div id="app"></div>
+
+<script src="js/store.js"></script>
+<script src="js/ui.js"></script>
+<script>
+mountShell({ active: "atendimentos", title: "Central de Atendimentos" });
+
+const params = new URLSearchParams(window.location.search);
+const atendimentoId = params.get("id");
+const base = atendimentoId ? Store.getFichaBase(atendimentoId) : null;
+
+const state = {
+  aba: params.get("tab") === "espontaneo" ? "espontaneo" : "agendada",
+  paciente: base ? base.paciente : "",
+  condicao: base ? base.condicao : "",
+  data: base ? base.data : new Date().toISOString().slice(0, 10),
+  horario: base ? base.horario : "08:00",
+  profissionais: base ? [...base.profissionais] : [PROFISSIONAIS_SAUDE[0].nome],
+};
+
+const pacientesDisponiveis = [...new Set(Store.getAtendimentos().map(a => a.paciente))];
+
+function profissionalOptions(selected) {
+  return `<option value="">Selecione um profissional...</option>` +
+    PROFISSIONAIS_SAUDE.map(p => {
+      const label = `${p.nome} - ${p.registro}`;
+      return `<option value="${p.nome}" ${p.nome === selected ? "selected" : ""}>${label}</option>`;
+    }).join("");
+}
+
+function render() {
+  const pacienteOptions = `<option value="">Selecione um paciente...</option>` +
+    pacientesDisponiveis.map(p => `<option value="${p}" ${p === state.paciente ? "selected" : ""}>${p}</option>`).join("") +
+    (state.paciente && !pacientesDisponiveis.includes(state.paciente) ? `<option value="${state.paciente}" selected>${state.paciente}</option>` : "");
+
+  const condicaoOptions = `<option value="">--</option>` +
+    CONDICOES_SAUDE.map(c => `<option value="${c}" ${c === state.condicao ? "selected" : ""}>${c}</option>`).join("");
+
+  const profissionaisHtml = state.profissionais.map((nome, i) => `
+    <div class="profissional-row">
+      <div class="field">
+        <label>Profissional ${i + 1}</label>
+        <select onchange="setProfissional(${i}, this.value)">${profissionalOptions(nome)}</select>
+      </div>
+      ${state.profissionais.length > 1 ? `
+        <button class="remove-profissional" title="Remover profissional" onclick="removeProfissional(${i})">${ICONS.cancelCircle}</button>
+      ` : ""}
+    </div>
+  `).join("");
+
+  document.getElementById("content").innerHTML = `
+    <div class="page-head">
+      <h2>Ficha de Atendimento</h2>
+      <div class="tabs">
+        <button class="tab ${state.aba === "agendada" ? "active" : ""}" onclick="setAba('agendada')">Consulta Agendada</button>
+        <button class="tab ${state.aba === "espontaneo" ? "active" : ""}" onclick="setAba('espontaneo')">Atendimento Espontâneo</button>
+      </div>
+    </div>
+
+    <div class="card section-card">
+      <h3 class="section-title">${ICONS.user} Dados do Paciente</h3>
+      <div class="field">
+        <label>Nome do Paciente</label>
+        <select id="f-paciente">${pacienteOptions}</select>
+      </div>
+      <div class="field" style="margin-bottom:0;">
+        <label>Condição de Saúde</label>
+        <select id="f-condicao">${condicaoOptions}</select>
+      </div>
+    </div>
+
+    <div class="card section-card">
+      <h3 class="section-title">${ICONS.calendar} Dados do Atendimento</h3>
+      <div class="field-row" style="margin-bottom:0;">
+        <div class="field" style="margin-bottom:0;">
+          <label>Data do Atendimento</label>
+          <input type="date" id="f-data" value="${state.data}">
+        </div>
+        <div class="field" style="margin-bottom:0;">
+          <label>Horário</label>
+          <input type="time" id="f-horario" value="${state.horario}">
+        </div>
+      </div>
+    </div>
+
+    <div class="card section-card">
+      <h3 class="section-title">${ICONS.team} Equipe Profissional</h3>
+      ${profissionaisHtml}
+      ${state.profissionais.length < 4 ? `
+        <button type="button" class="add-profissional-btn" onclick="addProfissional()">${ICONS.plus} Adicionar Profissional</button>
+      ` : ""}
+    </div>
+
+    <div class="ficha-footer">
+      <button class="btn btn-primary" onclick="salvar()">
+        ${atendimentoId ? "Atualizar Ficha de Atendimento" : "Salvar Ficha de Atendimento"}
+      </button>
+    </div>
+  `;
+
+  document.getElementById("f-paciente").onchange = e => state.paciente = e.target.value;
+  document.getElementById("f-condicao").onchange = e => state.condicao = e.target.value;
+  document.getElementById("f-data").onchange = e => state.data = e.target.value;
+  document.getElementById("f-horario").onchange = e => state.horario = e.target.value;
+}
+
+function setAba(aba) {
+  state.aba = aba;
+  render();
+}
+
+function setProfissional(i, value) {
+  state.profissionais[i] = value;
+}
+
+function addProfissional() {
+  state.profissionais.push("");
+  render();
+}
+
+function removeProfissional(i) {
+  state.profissionais.splice(i, 1);
+  render();
+}
+
+function salvar() {
+  if (!state.paciente) { UI.toast("Selecione o paciente."); return; }
+  if (!state.profissionais[0]) { UI.toast("Selecione ao menos um profissional."); return; }
+
+  if (state.aba === "espontaneo" && !atendimentoId) {
+    Store.addAtendimentoEspontaneo({ tipo: "ESF", paciente: state.paciente, turno: "Encaixe - Hoje" });
+  }
+
+  UI.toast("Ficha de atendimento salva.");
+  window.location.href = "atendimentos.html";
+}
+
+render();
+</script>
+</body>
+</html>

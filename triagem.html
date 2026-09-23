@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Triagem — UBS Central</title>
+<link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+<div id="app"></div>
+
+<script src="js/store.js"></script>
+<script src="js/ui.js"></script>
+<script>
+mountShell({ active: "solicitacoes", title: "Triagem e Validação de Pedidos" });
+
+const params = new URLSearchParams(window.location.search);
+let selectedId = params.get("id");
+
+function render() {
+  const pendentes = Store.getSolicitacoes("pendente");
+  if (!selectedId || !pendentes.find(s => s.id === selectedId)) {
+    selectedId = pendentes[0]?.id || null;
+  }
+  const selected = selectedId ? Store.getSolicitacao(selectedId) : null;
+
+  const listHtml = pendentes.length ? pendentes.map(s => `
+    <div class="request-item ${s.id === selectedId ? "selected" : ""}" onclick="selectRequest('${s.id}')">
+      <div class="info">
+        <div class="avatar-round">${ICONS.user}</div>
+        <div>
+          <div class="name">${UI.escapeHtml(s.paciente)}</div>
+          <div class="sub">
+            <span class="badge ${UI.categoryBadgeClass(s.categoria)}">${s.categoria.toUpperCase()}</span>
+            <span>${ICONS.agendas} ${s.especialidade}</span>
+          </div>
+        </div>
+      </div>
+      <div class="time">${s.dataHora}</div>
+    </div>`).join("") : `<div class="empty-cell">Nenhuma solicitação pendente no momento.</div>`;
+
+  const detailHtml = selected ? `
+    <div class="detail-photo">${UI.initials(selected.paciente)}</div>
+    <h3>${UI.escapeHtml(selected.paciente)}</h3>
+    <div class="cns">CNS: ${selected.cns}</div>
+    <span class="badge ${UI.categoryBadgeClass(selected.categoria)}">${selected.categoria.toUpperCase()}</span>
+
+    <div class="detail-grid">
+      <div>
+        <div class="k">Especialidade</div>
+        <div class="v">${selected.especialidade}</div>
+      </div>
+      <div>
+        <div class="k">Data do Pedido</div>
+        <div class="v">${selected.dataPedido}</div>
+      </div>
+    </div>
+
+    <div class="detail-motivo">
+      <div class="k">Motivo Informado</div>
+      <p>"${UI.escapeHtml(selected.motivo)}"</p>
+    </div>
+
+    <div class="detail-actions">
+      <button class="btn btn-success" onclick="decide(true)">${ICONS.check} Aprovar</button>
+      <button class="btn btn-danger" onclick="decide(false)">${ICONS.cancelCircle} Negar</button>
+    </div>
+  ` : `<div class="detail-empty">${ICONS.inbox}<h3>Nenhuma solicitação selecionada</h3><p>Escolha um pedido na lista ao lado para revisar os detalhes.</p></div>`;
+
+  document.getElementById("content").innerHTML = `
+    <div class="notice-banner">
+      ${ICONS.warn}
+      <div>
+        <strong>Atenção: Verifique o Prontuário Eletrônico (PEC) antes de confirmar</strong>
+        <p>A validação manual é obrigatória para garantir que os dados de triagem coincidam com a agenda oficial.</p>
+      </div>
+    </div>
+
+    <div class="two-col">
+      <div>
+        <div class="page-head" style="margin-bottom:14px;">
+          <h2 style="font-size:19px;">Pedidos Pendentes</h2>
+          <span class="tag-pill">${pendentes.length} Novos</span>
+        </div>
+        <div class="request-list">${listHtml}</div>
+      </div>
+
+      <div class="card detail-card">${detailHtml}</div>
+    </div>
+  `;
+}
+
+function selectRequest(id) {
+  selectedId = id;
+  render();
+}
+
+function decide(aprovado) {
+  if (!selectedId) return;
+  let justificativa = null;
+  if (!aprovado) {
+    justificativa = prompt("Informe a justificativa da reprovação:");
+    if (justificativa === null) return;
+    if (!justificativa.trim()) { UI.toast("Justificativa é obrigatória."); return; }
+  } else {
+    if (!confirm("Confirma que a disponibilidade foi verificada no PEC e deseja aprovar?")) return;
+  }
+  Store.decidirSolicitacao(selectedId, aprovado, justificativa);
+  UI.toast(aprovado ? "Solicitação aprovada com sucesso." : "Solicitação reprovada.");
+  selectedId = null;
+  render();
+}
+
+render();
+</script>
+</body>
+</html>

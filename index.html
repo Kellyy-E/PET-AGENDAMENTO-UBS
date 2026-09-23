@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dashboard — UBS Central</title>
+<link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+<div id="app"></div>
+
+<script src="js/store.js"></script>
+<script src="js/ui.js"></script>
+<script>
+
+  
+mountShell({ active: "dashboard", title: "Dashboard - Visão Geral" });
+
+function statusBadge(status) {
+  const map = {
+    aguardando: ["AGUARDANDO", "badge-waiting"],
+    em_atendimento: ["EM ATENDIMENTO", "badge-progress"],
+    finalizado: ["FINALIZADO", "badge-done"],
+  };
+  const [label, cls] = map[status] || [status, "badge-waiting"];
+  return `<span class="badge ${cls}">${label}</span>`;
+}
+
+function render() {
+  const counts = Store.counts();
+  const atendimentos = Store.getAtendimentos().slice(0, 4);
+  const pendentes = Store.getSolicitacoes("pendente").slice(0, 3);
+
+  const rowsAtendimentos = atendimentos.length
+    ? atendimentos.map(a => `
+      <tr>
+        <td class="cell-icon-label">${ICONS.agendas} ${a.tipo === "eMulti" ? "Odontologia" : "Clínica Médica"}</td>
+        <td>${UI.escapeHtml(a.paciente)}</td>
+        <td>${a.turno}</td>
+        <td>${statusBadge(a.status)}</td>
+      </tr>`).join("")
+    : `<tr><td colspan="4" class="empty-cell">Nenhum atendimento agendado para hoje.</td></tr>`;
+
+  const pendentesHtml = pendentes.length
+    ? pendentes.map(s => `
+      <div class="pending-item">
+        <div class="top-row">
+          <div>
+            <div class="name">${UI.escapeHtml(s.paciente)}</div>
+            <div class="meta">Solicitado: ${s.dataPedido.split(" - ")[1] || s.dataPedido}</div>
+          </div>
+          <span class="badge ${UI.categoryBadgeClass(s.categoria)}">${s.categoria}</span>
+        </div>
+        <div class="actions">
+          <a class="btn btn-outline btn-sm view-btn" href="triagem.html?id=${s.id}">Visualizar Solicitação</a>
+          <button class="icon-btn approve" title="Aprovar" onclick="quickDecide('${s.id}', true)">${ICONS.check}</button>
+          <button class="icon-btn reject" title="Negar" onclick="quickDecide('${s.id}', false)">${ICONS.cancelCircle}</button>
+        </div>
+      </div>`).join("")
+    : `<div class="empty-cell">Nenhuma solicitação pendente.</div>`;
+
+  document.getElementById("content").innerHTML = `
+    <div class="page-head">
+      <div>
+        <h2>Gestão UBS - Painel Administrativo</h2>
+      </div>
+      <a class="btn btn-primary" href="configurar-turno.html">${ICONS.plus} Abrir Nova Agenda</a>
+    </div>
+
+    <div class="stat-grid">
+      <div class="card stat-card">
+        <div class="stat-icon blue">${ICONS.agendas}</div>
+        <div class="label">Agendas Ativas</div>
+        <div class="value">${String(counts.agendasAtivas).padStart(2, "0")}</div>
+      </div>
+      <div class="card stat-card">
+        <div class="stat-icon amber">${ICONS.solicitacoes}</div>
+        <div class="label">Solicitações Pendentes</div>
+        <div class="value">${String(counts.solicitacoesPendentes).padStart(2, "0")}</div>
+      </div>
+      <div class="card stat-card">
+        <div class="stat-icon green">${ICONS.pessoas}</div>
+        <div class="label">Atendimentos do Dia</div>
+        <div class="value">${String(counts.atendimentosHoje).padStart(2, "0")}</div>
+      </div>
+    </div>
+
+    <div class="two-col">
+      <div class="card table-card">
+        <div class="table-card-head">
+          <h3>Consultas do Dia</h3>
+          <a class="link-arrow" href="atendimentos.html">Ver Tudo →</a>
+        </div>
+        <table>
+          <thead><tr><th>Tipo de Consulta</th><th>Paciente</th><th>Turno</th><th>Status</th></tr></thead>
+          <tbody>${rowsAtendimentos}</tbody>
+        </table>
+      </div>
+
+      <div class="card pending-card">
+        <div class="pending-card-head">${ICONS.warn} Solicitações Pendentes</div>
+        <div class="pending-list">${pendentesHtml}</div>
+        <a class="pending-footer" href="triagem.html">Ver Tudo →</a>
+      </div>
+    </div>
+  `;
+}
+
+function quickDecide(id, aprovado) {
+  let justificativa = null;
+  if (!aprovado) {
+    justificativa = prompt("Informe a justificativa da reprovação:");
+    if (justificativa === null) return;
+    if (!justificativa.trim()) { UI.toast("Justificativa é obrigatória."); return; }
+  }
+  Store.decidirSolicitacao(id, aprovado, justificativa);
+  UI.toast(aprovado ? "Solicitação aprovada." : "Solicitação reprovada.");
+  render();
+}
+
+render();
+</script>
+</body>
+</html>

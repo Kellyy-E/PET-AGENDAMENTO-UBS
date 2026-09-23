@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Agendas — UBS Central</title>
+<link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+<div id="app"></div>
+
+<script src="js/store.js"></script>
+<script src="js/ui.js"></script>
+<script>
+mountShell({ active: "agendas", title: "Agendas" });
+
+let currentTab = SPECIALTIES[0];
+
+function publicoBadgeClass(publico) {
+  if (/gestante|pu[eé]rpera/i.test(publico)) return "badge-gestante";
+  if (/cr[oô]nic|hipertens/i.test(publico)) return "badge-cronica";
+  if (/crian[cç]a/i.test(publico)) return "badge-crianca";
+  return "badge-geral";
+}
+
+function render() {
+  const turnos = Store.getTurnos(currentTab);
+  const ativos = turnos.length;
+  const vagasHoje = turnos.reduce((sum, t) => sum + Number(t.vagas || 0), 0);
+
+  const tabsHtml = SPECIALTIES.map(s => `
+    <button class="tab ${s === currentTab ? "active" : ""}" onclick="switchTab('${s}')">${s}</button>
+  `).join("");
+
+  const rows = turnos.length ? turnos.map(t => `
+    <tr>
+      <td class="cell-icon-label">
+        <span class="avatar" style="width:34px;height:34px;font-size:12px;">${t.iniciais || UI.initials(t.profissional)}</span>
+        <strong>${UI.escapeHtml(t.profissional)}</strong>
+      </td>
+      <td>${t.dias.join(", ")}<br><strong>${t.inicio} - ${t.fim}</strong></td>
+      <td><span class="badge ${publicoBadgeClass(t.publico)}">${t.publico}</span></td>
+      <td><span class="badge badge-open">${t.status}</span></td>
+      <td>
+        <button class="icon-btn approve" title="Editar" onclick="UI.toast('Edição de turno em construção.')">${ICONS.edit}</button>
+        <button class="icon-btn reject" title="Cancelar agenda" onclick="cancelTurno('${t.id}')">${ICONS.cancelCircle}</button>
+      </td>
+    </tr>`).join("") : `<tr><td colspan="5" class="empty-cell">Nenhum turno cadastrado para ${currentTab}.</td></tr>`;
+
+  document.getElementById("content").innerHTML = `
+    <div class="page-head">
+      <div>
+        <h2>Gerenciamento de Agendas</h2>
+        <p>Configure turnos, disponibilidades e categorias de atendimento para a equipe de saúde.</p>
+      </div>
+      <a class="btn btn-primary" href="configurar-turno.html">${ICONS.plus} Nova Agenda</a>
+    </div>
+
+    <div class="tabs">${tabsHtml}</div>
+
+    <div class="card table-card">
+      <div class="table-card-head">
+        <h3>Turnos Ativos - ${currentTab}${currentTab === "Clínica" ? " Médica" : ""}</h3>
+        <div>
+          <span class="tag-pill">${ativos} Ativos</span>
+          <span class="tag-pill">${vagasHoje} Vagas Hoje</span>
+        </div>
+      </div>
+      <table>
+        <thead><tr><th>Profissional</th><th>Dias e Horário</th><th>Público</th><th>Status</th><th>Ações</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>
+  `;
+}
+
+function switchTab(s) {
+  currentTab = s;
+  render();
+}
+
+function cancelTurno(id) {
+  if (!confirm("Cancelar esta agenda? As vagas serão liberadas imediatamente.")) return;
+  Store.cancelTurno(id);
+  UI.toast("Agenda cancelada e vagas liberadas.");
+  render();
+}
+
+render();
+</script>
+</body>
+</html>
