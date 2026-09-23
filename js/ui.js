@@ -140,3 +140,10 @@ const UI = {
     return ((parts[0]?.[0] || "") + (parts[1]?.[0] || "")).toUpperCase();
   },
 };
+
+// Fechar dropdowns se o utilizador clicar fora deles
+window.addEventListener('click', function(event) {
+  if (!event.target.matches('.btn-acoes') && !event.target.closest('.dropdown-menu')) {
+      document.querySelectorAll('.dropdown-menu').forEach(menu => menu.classList.remove('show'));
+  }
+});

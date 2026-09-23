@@ -200,6 +200,15 @@ const Store = {
     else if (a.status === "em_atendimento") a.status = "finalizado";
     saveDB(db);
   },
+  
+  atualizarStatusAtendimento(id, novoStatus) {
+        const db = loadDB();
+        const a = db.atendimentos.find(x => x.id === id);
+        if (!a) return;
+        a.status = novoStatus;
+        saveDB(db);
+  },
+
   addAtendimentoEspontaneo(atendimento) {
     const db = loadDB();
     atendimento.id = uid("a");
