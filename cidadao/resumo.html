@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Resumo do Agendamento — UBS Digital</title>
+<link rel="stylesheet" href="css/mobile.css">
+</head>
+<body>
+<div id="app"></div>
+<script src="js/app.js"></script>
+<script>
+mountApp({ active: "consultas", title: "Resumo do Agendamento", back: "agendamento.html", tools: "none", nav: false });
+const db = Store.get(), dr = db.draft;
+if (!dr) location.replace("agendamento.html");
+const med = MEDICOS[dr.esp] || MEDICOS["Clínica Geral"];
+const dep = db.dependentes.find(d => d.id === dr.depId);
+const paciente = dr.para === "dep" && dep ? dep.nome : db.user.nome;
+const dia = D.parse(dr.iso);
+
+$("c").innerHTML = `
+  <div class="step"><small>PASSO FINAL</small><h2>Confirme os detalhes</h2><p>Revise as informações abaixo antes de confirmar sua solicitação de consulta.</p></div>
+  <div class="card c"><b>${med.nome}</b><small>${dr.esp}</small><span style="font-size:11px">${med.reg}</span></div>
+  <div class="card c pt"><small>Paciente</small><b>${UI.esc(paciente)}</b></div>
+  <div class="card inf">${I.pin}<div><small>Unidade</small><b>UBS Central</b><span>Setor A - Piso 2</span></div></div>
+  <div class="card inf">${I.cal}<div><small>Data e hora</small><b>${D.longo(dr.iso)}</b><span>${D.dia[dia.getDay()]} às ${dr.hora}</span></div></div>
+  <div class="card rem"><b>${I.info.replace(/width="20" height="20"/, 'width="15" height="15"')} Lembretes Importantes</b>
+    ✓ Chegar com 15 minutos de antecedência.<br>✓ Levar documento oficial com foto e Cartão SUS.</div>`;
+$("app").querySelector(".phone").insertAdjacentHTML("beforeend",
+  `<div class="foot"><button class="btn p w" id="send" style="height:46px">${I.send} Enviar Solicitação</button></div>`);
+
+$("send").onclick = () => {
+  const id = "c" + Date.now();
+  Store.update(d => {
+    d.consultas.push({ id, esp: dr.esp, medico: med.nome, iso: dr.iso, hora: dr.hora, unidade: "UBS Central", local: "Setor A - Piso 2", paciente, status: "Em Análise" });
+    d.draft = null;
+  });
+  location.href = "sucesso.html?id=" + id;
+};
+</script>
+</body>
+</html>

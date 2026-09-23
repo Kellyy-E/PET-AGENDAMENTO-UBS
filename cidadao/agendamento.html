@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Agendamento — UBS Digital</title>
+<link rel="stylesheet" href="css/mobile.css">
+</head>
+<body>
+<div id="app"></div>
+<script src="js/app.js"></script>
+<script>
+mountApp({ active: "consultas", tools: "full" });
+const P = new URLSearchParams(location.search);
+const esp = P.get("esp") || "Clínica Geral";
+const medico = MEDICOS[esp] || MEDICOS["Clínica Geral"];
+const HORAS = ["08:00", "09:30", "11:00", "14:00", "15:30", "16:00", "17:30"];
+const hoje = new Date(); hoje.setHours(0, 0, 0, 0);
+let semana = D.segunda(hoje), diaSel = null, hora = null, para = null, depId = null;
+
+// horário ocupado: regra fixa por data (simula agenda já preenchida)
+const ocupado = (iso, h) => (D.parse(iso).getDate() * 7 + HORAS.indexOf(h) * 3) % 5 === 0;
+const dias = () => [0, 1, 2, 3, 4].map(i => { const d = new Date(semana); d.setDate(d.getDate() + i); return d; });
+
+function render() {
+  const ds = dias(), meio = ds[2], deps = Store.get().dependentes;
+  $("c").innerHTML = `
+    <h2 class="t">Solicitação de Agendamento de Consultas</h2>
+    <p class="sub">${esp} · escolha o dia e o horário.</p>
+    <h3 style="margin-top:0">Data e Horário</h3>
+    <div class="card">
+      <div class="calh"><span>${D.mes[meio.getMonth()]} ${meio.getFullYear()}</span>
+        <span><button id="prev" ${semana <= D.segunda(hoje) ? "disabled" : ""}>${I.prev}</button><button id="next">${I.next}</button></span></div>
+      <div class="wk">${ds.map(d => { const iso = D.iso(d); return `
+        <button class="dy ${iso === diaSel ? "on" : ""}" data-d="${iso}" ${d < hoje ? "disabled" : ""}>${D.dia[d.getDay()].slice(0, 3).toUpperCase()}<b>${d.getDate()}</b></button>`; }).join("")}</div>
+      <div class="lb">Horários disponíveis</div>
+      <div class="slots">${HORAS.map(h => `<button class="slot ${h === hora ? "on" : ""}" data-h="${h}" ${!diaSel || ocupado(diaSel, h) ? "disabled" : ""}>${h}</button>`).join("")}</div>
+      ${!diaSel ? `<div class="err" style="color:var(--mut)">Selecione um dia para ver os horários.</div>` : ""}
+    </div>
+    <div class="doc"><b>Médico(a) do Turno</b>
+      <div class="in"><span class="av" style="width:40px;height:40px;font-size:13px">${UI.initials(medico.nome.replace(/^Dra?\.\s/, ""))}</span>
+      <div><strong>${medico.nome}</strong>${medico.papel}</div></div></div>
+    <h3>Para quem está solicitando?</h3>
+    <button class="opt ${para === "eu" ? "on" : ""}" data-p="eu">Para eu mesmo<i>${I.user}</i></button>
+    <button class="opt ${para === "dep" ? "on" : ""}" data-p="dep">Para um dependente<i>${I.users}</i></button>
+    ${para === "dep" ? (deps.length ? `<select id="dep"><option value="">Selecione o dependente</option>${deps.map(d => `<option value="${d.id}" ${d.id === depId ? "selected" : ""}>${UI.esc(d.nome)} (${d.parentesco})</option>`).join("")}</select>`
+      : `<div class="err">Você ainda não tem dependentes. <a href="dependente-novo.html" style="text-decoration:underline">Adicionar</a></div>`) : ""}
+    <button class="btn p w" id="go" style="margin-top:18px;height:46px">Solicitar Consulta</button>`;
+
+  $("prev").onclick = () => { semana.setDate(semana.getDate() - 7); diaSel = hora = null; render(); };
+  $("next").onclick = () => { semana.setDate(semana.getDate() + 7); diaSel = hora = null; render(); };
+  document.querySelectorAll(".dy").forEach(b => b.onclick = () => { diaSel = b.dataset.d; hora = null; render(); });
+  document.querySelectorAll(".slot").forEach(b => b.onclick = () => { hora = b.dataset.h; render(); });
+  document.querySelectorAll(".opt").forEach(b => b.onclick = () => { para = b.dataset.p; render(); });
+  if ($("dep")) $("dep").onchange = e => { depId = e.target.value; };
+  $("go").onclick = () => {
+    if (!diaSel || !hora) return UI.toast("Escolha o dia e o horário.");
+    if (!para) return UI.toast("Informe para quem é a consulta.");
+    if (para === "dep" && !depId) return UI.toast("Selecione o dependente.");
+    Store.update(d => { d.draft = { esp, iso: diaSel, hora, para, depId }; });
+    location.href = "resumo.html";
+  };
+}
+render();
+</script>
+</body>
+</html>

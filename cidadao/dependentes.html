@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dependentes — UBS Digital</title>
+<link rel="stylesheet" href="css/mobile.css">
+</head>
+<body>
+<div id="app"></div>
+<script src="js/app.js"></script>
+<script>
+mountApp({ active: "dependentes" });
+
+function render() {
+  const deps = Store.get().dependentes;
+  $("c").innerHTML = `
+    <h2 class="t" style="color:var(--ink)">Meus Dependentes</h2>
+    <p class="sub">Gerencie os membros da sua família vinculados ao seu prontuário.</p>
+    <a class="btn p w" href="dependente-novo.html" style="margin-bottom:14px">${I.userplus} Adicionar Novo Dependente</a>
+    ${deps.length ? deps.map(d => `
+    <div class="card">
+      <div class="hi"><span class="ib">${I.user}</span>
+        <div><strong>${UI.esc(d.nome)}</strong><span class="pill" style="margin-top:4px">${UI.esc(d.parentesco)}</span></div></div>
+      <div class="cns">CNS (Cartão SUS)<b>${d.cns}</b></div>
+      <div class="acts"><button class="btn s" data-v="${d.id}">Ver Perfil</button><button class="btn s d" data-r="${d.id}">Remover</button></div>
+    </div>`).join("") : `<div class="card empty">Nenhum dependente cadastrado.</div>`}`;
+
+  document.querySelectorAll("[data-v]").forEach(b => b.onclick = () => {
+    const d = deps.find(x => x.id === b.dataset.v);
+    const ov = UI.sheet(`<h2>${UI.esc(d.nome)}</h2>
+      <div class="kv"><span>Parentesco</span><b>${UI.esc(d.parentesco)}</b></div>
+      <div class="kv"><span>Nascimento</span><b>${d.nasc || "—"}</b></div>
+      <div class="kv"><span>CNS</span><b>${d.cns}</b></div>
+      <a class="btn p w" style="margin-top:16px" href="agendamento.html">Agendar consulta</a>`);
+  });
+  document.querySelectorAll("[data-r]").forEach(b => b.onclick = () => {
+    const d = deps.find(x => x.id === b.dataset.r);
+    if (!confirm(`Remover ${d.nome} da sua lista de dependentes?`)) return;
+    Store.update(db => { db.dependentes = db.dependentes.filter(x => x.id !== d.id); });
+    UI.toast("Dependente removido."); render();
+  });
+}
+render();
+</script>
+</body>
+</html>
